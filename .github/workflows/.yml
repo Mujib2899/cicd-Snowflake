@@ -1,48 +1,40 @@
-name: Create Snowflake Database
+name: Deploy Snowflake Database on Windows
 
 on:
   push:
     branches:
-      - main  # or your deployment branch
+      - main
 
 jobs:
-  create-database:
+  terraform:
+    name: 'Terraform Apply on Windows'
     runs-on: windows-latest
+
+    env:
+      TF_VAR_snowflake_account: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      TF_VAR_snowflake_user: ${{ secrets.SNOWFLAKE_USER }}
+      TF_VAR_snowflake_password: ${{ secrets.SNOWFLAKE_PASSWORD }}
+      TF_VAR_snowflake_role: ${{ secrets.SNOWFLAKE_ROLE }}
+      TF_VAR_snowflake_region: ${{ secrets.SNOWFLAKE_REGION }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
         with:
-          python-version: '3.10'
+          terraform_wrapper: false  # disable wrapper on Windows to avoid path issues
 
-      - name: Install Snowflake connector
-        run: pip install snowflake-connector-python
+      - name: Terraform Init
+        run: terraform init
 
-      - name: Create Snowflake database
-        env:
-          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
-          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
-          SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
-          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
-        run: |
-          python -c "
-import snowflake.connector
-conn = snowflake.connector.connect(
-    user='${{ secrets.SNOWFLAKE_USER }}',
-    password='${{ secrets.SNOWFLAKE_PASSWORD }}',
-    account='${{ secrets.SNOWFLAKE_ACCOUNT }}',
-    role='${{ secrets.SNOWFLAKE_ROLE }}',
-    warehouse='${{ secrets.SNOWFLAKE_WAREHOUSE }}'
-)
-cs = conn.cursor()
-try:
-    cs.execute('CREATE DATABASE IF NOT EXISTS ajay')
-    print('Database ajay created successfully.')
-finally:
-    cs.close()
-    conn.close()
-"
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+
